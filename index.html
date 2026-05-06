@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S&P 500 Predictive Dashboard</title>
+    <style>
+        :root {
+            --bg: #f4f7f6;
+            --card: #ffffff;
+            --primary: #2c3e50;
+            --accent: #27ae60;
+            --danger: #e74c3c;
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--primary); display: flex; justify-content: center; padding: 20px; }
+        .container { background: var(--card); padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+        h2 { text-align: center; margin-bottom: 25px; border-bottom: 2px solid var(--bg); padding-bottom: 10px; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.9rem; }
+        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
+        .result-box { margin-top: 25px; padding: 20px; border-radius: 8px; text-align: center; background: var(--bg); transition: all 0.3s ease; }
+        #predicted-value { font-size: 2rem; font-weight: bold; display: block; margin: 10px 0; }
+        .percent-change { font-weight: bold; }
+        .disclaimer { font-size: 0.7rem; color: #7f8c8d; margin-top: 20px; line-height: 1.4; }
+        .positive { color: var(--accent); }
+        .negative { color: var(--danger); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>S&P 500 Predictor</h2>
+    
+    <div class="input-group">
+        <label>Current S&P 500 Level</label>
+        <input type="number" id="currPrice" value="7200">
+    </div>
+    
+    <div class="input-group">
+        <label>Target Fed Funds Rate (%)</label>
+        <input type="number" id="fedRate" step="0.01" value="3.64">
+    </div>
+    
+    <div class="input-group">
+        <label>Annual Inflation Rate (%)</label>
+        <input type="number" id="inflation" step="0.1" value="3.3">
+    </div>
+
+    <div class="input-group">
+        <label>Current CPI Index</label>
+        <input type="number" id="cpi" step="0.1" value="330.2">
+    </div>
+
+    <div class="result-box" id="resultBox">
+        <span style="font-size: 0.9rem; color: #666;">Estimated Target Level</span>
+        <span id="predicted-value">0.00</span>
+        <span id="move-label" class="percent-change">0.00%</span>
+    </div>
+
+    <p class="disclaimer">
+        <strong>Disclaimer:</strong> This is a mathematical simulation based on historical sensitivity coefficients. It does not account for black swan events, geopolitical shifts, or sector-specific earnings volatility. Not financial advice.
+    </p>
+</div>
+
+<script>
+    const inputs = ['currPrice', 'fedRate', 'inflation', 'cpi'];
+    
+    function calculatePrediction() {
+        const P = parseFloat(document.getElementById('currPrice').value);
+        const R = parseFloat(document.getElementById('fedRate').value);
+        const I = parseFloat(document.getElementById('inflation').value);
+        
+        // SENSITIVITY CONSTANTS
+        const neutralRate = 2.5; // Estimated long-term neutral rate
+        const targetInflation = 2.0;
+        const rateImpact = 0.04; // 4% drop per 1% rate hike above neutral
+        const inflationImpact = 0.02; // 2% drop per 1% inflation above target
+        const earningsGrowth = 0.08; // Assumed 8% annual corporate growth
+
+        // CALCULATION LOGIC
+        // Adjust for Rates: Penalty for being above neutral
+        const rateDrag = (R - neutralRate) * rateImpact;
+        
+        // Adjust for Inflation: Penalty for being above target
+        const inflationDrag = (I - targetInflation) * inflationImpact;
+        
+        // Net Estimated Move
+        const netMove = earningsGrowth - rateDrag - inflationDrag;
+        const predictedPrice = P * (1 + netMove);
+        const percentChange = netMove * 100;
+
+        // UI UPDATE
+        const display = document.getElementById('predicted-value');
+        const moveLabel = document.getElementById('move-label');
+        
+        display.innerText = predictedPrice.toLocaleString(undefined, {maximumFractionDigits: 2});
+        moveLabel.innerText = (percentChange >= 0 ? "+" : "") + percentChange.toFixed(2) + "%";
+        
+        if(percentChange >= 0) {
+            moveLabel.className = "percent-change positive";
+        } else {
+            moveLabel.className = "percent-change negative";
+        }
+    }
+
+    // Attach listeners
+    inputs.forEach(id => {
+        document.getElementById(id).addEventListener('input', calculatePrediction);
+    });
+
+    // Initial calculation
+    calculatePrediction();
+</script>
+
+</body>
+</html>

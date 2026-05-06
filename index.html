@@ -268,3 +268,273 @@
 
 </body>
 </html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>S&P 500 Oracle</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #0b0e14;
+            --card: #151921;
+            --text: #e0e6ed;
+            --accent: #00ff88;
+            --danger: #ff4d4d;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px; /* Slimmer for better mobile reading */
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #2a2f3b;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin: 0 0 5px 0;
+            color: white;
+        }
+
+        .header p {
+            font-size: 0.85rem;
+            opacity: 0.7;
+            margin: 0;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr; /* Stack by default for mobile */
+            gap: 15px;
+        }
+
+        /* Responsive grid for larger screens (Tablets/Desktop) */
+        @media (min-width: 480px) {
+            .grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .result-box {
+                grid-column: span 2;
+            }
+        }
+
+        .card {
+            background: var(--card);
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid #2a2f3b;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #888;
+            margin-bottom: 8px;
+        }
+
+        .stat-val {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        /* Larger Sliders for Thumb Interaction */
+        input[type="range"] {
+            width: 100%;
+            height: 30px; /* Larger hit area */
+            background: transparent;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        .result-box {
+            text-align: center;
+            background: linear-gradient(180deg, #1a1f29 0%, #151921 100%);
+            padding: 25px 15px;
+        }
+
+        #prediction {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin: 5px 0;
+            letter-spacing: -1px;
+        }
+
+        #pct-change {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+        }
+
+        canvas {
+            max-width: 100%;
+            height: 180px !important;
+        }
+
+        .disclaimer {
+            font-size: 10px;
+            line-height: 1.4;
+            color: #555;
+            margin-top: 15px;
+            padding: 0 10px;
+        }
+
+        .input-wrap {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .current-val-tag {
+            font-weight: bold;
+            color: white;
+            background: #2a2f3b;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>S&P 500 Market Oracle</h1>
+        <p>Macro-Driven Predictive Model (May 2026)</p>
+    </div>
+
+    <div class="grid">
+        <!-- Baseline Stats -->
+        <div class="card">
+            <div class="label">S&P 500 Index</div>
+            <div class="stat-val">7,259.22</div>
+        </div>
+        <div class="card">
+            <div class="label">CPI Inflation (YoY)</div>
+            <div class="stat-val">3.26%</div>
+        </div>
+
+        <!-- Controls -->
+        <div class="card">
+            <div class="input-wrap">
+                <div class="label" style="margin:0">Fed Rate Target</div>
+                <span class="current-val-tag"><span id="fed-val">3.64</span>%</span>
+            </div>
+            <input type="range" id="fed-input" min="0" max="10" step="0.25" value="3.64">
+        </div>
+
+        <div class="card">
+            <div class="input-wrap">
+                <div class="label" style="margin:0">Inflation Target</div>
+                <span class="current-val-tag"><span id="cpi-val">3.26</span>%</span>
+            </div>
+            <input type="range" id="cpi-input" min="-2" max="12" step="0.1" value="3.26">
+        </div>
+
+        <!-- Main Output -->
+        <div class="card result-box">
+            <div class="label">Projected Index Level</div>
+            <div id="prediction">7,259.22</div>
+            <div id="pct-change">0.00%</div>
+            
+            <canvas id="predChart"></canvas>
+            
+            <p class="disclaimer">
+                Model logic: -12.5% valuation drag per 100bps rate hike. 
+                -5% drag per 1% inflation spike above baseline. 
+                Sources: Fed H.15 & BLS Gazette.
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const BASE_SP = 7259.22;
+    const BASE_FED = 3.64;
+    const BASE_CPI = 3.26;
+
+    const fedInput = document.getElementById('fed-input');
+    const cpiInput = document.getElementById('cpi-input');
+    const predDisplay = document.getElementById('prediction');
+    const pctDisplay = document.getElementById('pct-change');
+
+    function calculate() {
+        const targetFed = parseFloat(fedInput.value);
+        const targetCPI = parseFloat(cpiInput.value);
+
+        document.getElementById('fed-val').innerText = targetFed.toFixed(2);
+        document.getElementById('cpi-val').innerText = targetCPI.toFixed(2);
+
+        const fedImpact = (targetFed - BASE_FED) * -0.125;
+        const cpiImpact = (targetCPI - BASE_CPI) * -0.050;
+        
+        const totalImpact = 1 + fedImpact + cpiImpact;
+        const predictedVal = Math.max(0, BASE_SP * totalImpact);
+        const pctChange = ((predictedVal - BASE_SP) / BASE_SP) * 100;
+
+        predDisplay.innerText = predictedVal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        pctDisplay.innerText = (pctChange >= 0 ? '▲ ' : '▼ ') + pctChange.toFixed(2) + '%';
+        pctDisplay.style.color = pctChange >= 0 ? 'var(--accent)' : 'var(--danger)';
+        
+        updateChart(predictedVal);
+    }
+
+    const ctx = document.getElementById('predChart').getContext('2d');
+    let predChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Current', 'Projected'],
+            datasets: [{
+                data: [BASE_SP, BASE_SP],
+                backgroundColor: ['#2a2f3b', '#00ff88'],
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { 
+                y: { display: false },
+                x: { ticks: { color: '#888' }, grid: { display: false } }
+            }
+        }
+    });
+
+    function updateChart(newVal) {
+        predChart.data.datasets[0].data[1] = newVal;
+        predChart.update('none'); // Update without animation for smoother slider feel
+    }
+
+    fedInput.addEventListener('input', calculate);
+    cpiInput.addEventListener('input', calculate);
+    window.onload = calculate;
+</script>
+
+</body>
+</html>

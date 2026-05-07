@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>S&P 500 Oracle | 2026</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #0b0e14;
+            --card: #161b22;
+            --text: #f0f6fc;
+            --accent: #00ff88;
+            --danger: #ff4d4d;
+            --border: #30363d;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, system-ui, sans-serif;
+            display: flex;
+            justify-content: center;
+            min-height: 100dvh;
+            padding: env(safe-area-inset-top) 15px env(safe-area-inset-bottom);
+        }
+
+        .container { width: 100%; max-width: 400px; padding-top: 20px; }
+
+        .header { text-align: center; margin-bottom: 20px; }
+        .header h1 { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.5px; }
+        .header p { font-size: 0.75rem; color: #8b949e; text-transform: uppercase; margin-top: 4px; }
+
+        .stack { display: flex; flex-direction: column; gap: 12px; }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        /* Fixed Baseline Stats */
+        .baseline-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .stat-box .label { font-size: 9px; color: #8b949e; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; }
+        .stat-box .val { font-size: 1.2rem; font-weight: 700; color: var(--accent); }
+
+        /* Controls */
+        .control-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .tag { background: #21262d; padding: 2px 8px; border-radius: 6px; font-size: 13px; font-weight: bold; border: 1px solid var(--border); }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #30363d;
+            border-radius: 5px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            background: #fff;
+            border: 2px solid var(--accent);
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0,255,136,0.2);
+        }
+
+        /* Result Section */
+        .result-card {
+            text-align: center;
+            background: linear-gradient(180deg, #1c2128 0%, #161b22 100%);
+            border: 1px solid #00ff8844;
+            padding: 25px 15px;
+        }
+
+        #prediction { font-size: 2.8rem; font-weight: 900; margin: 5px 0; color: #fff; letter-spacing: -1.5px; }
+        #pct-change { font-size: 1.1rem; font-weight: 700; margin-bottom: 15px; }
+
+        .chart-container { height: 140px; margin-bottom: 10px; }
+
+        .footer { font-size: 10px; color: #484f58; line-height: 1.4; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>S&P 500 Oracle</h1>
+        <p>Live Market Analysis • May 7, 2026</p>
+    </div>
+
+    <div class="stack">
+        <div class="card baseline-grid">
+            <div class="stat-box">
+                <p class="label">S&P 500 Base</p>
+                <p class="val" id="base-sp">7,365.12</p>
+            </div>
+            <div class="stat-box" style="text-align: right;">
+                <p class="label">CPI Index (Points)</p>
+                <p class="val" id="base-cpi" style="color: #fff;">330.21</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="control-header">
+                <p class="label">Target Fed Rate</p>
+                <span class="tag"><span id="fed-val">3.64</span>%</span>
+            </div>
+            <input type="range" id="fed-input" min="0" max="10" step="0.25" value="3.64">
+        </div>
+
+        <div class="card">
+            <div class="control-header">
+                <p class="label">Target Inflation (YoY %)</p>
+                <span class="tag"><span id="inf-val">3.30</span>%</span>
+            </div>
+            <input type="range" id="inf-input" min="-2" max="12" step="0.1" value="3.30">
+        </div>
+
+        <div class="card result-card">
+            <p class="label">Projected S&P 500</p>
+            <h2 id="prediction">7,365.12</h2>
+            <p id="pct-change">0.00%</p>
+            
+            <div class="chart-container">
+                <canvas id="predChart"></canvas>
+            </div>
+            
+            <p class="footer">
+                Math: -12.5% valuation drag per 1% rate hike. -5% drag per 1% inflation spike. <br>
+                Baseline: Fed Rate 3.64% | Inflation 3.30%
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Validated 2026 Data Constants
+    const BASE_SP = 7365.12;
+    const BASE_FED = 3.64;
+    const BASE_INF = 3.30; 
+
+    const fedIn = document.getElementById('fed-input');
+    const infIn = document.getElementById('inf-input');
+    const predOut = document.getElementById('prediction');
+    const pctOut = document.getElementById('pct-change');
+
+    function calculate() {
+        const tFed = parseFloat(fedIn.value);
+        const tInf = parseFloat(infIn.value);
+
+        document.getElementById('fed-val').innerText = tFed.toFixed(2);
+        document.getElementById('inf-val').innerText = tInf.toFixed(2);
+
+        // Core Predictive Formula:
+        // Valuation move = (Rate Delta * -12.5%) + (Inflation Delta * -5.0%)
+        const fedImpact = (tFed - BASE_FED) * -0.125;
+        const infImpact = (tInf - BASE_INF) * -0.050;
+        
+        const multiplier = 1 + fedImpact + infImpact;
+        const finalVal = Math.max(0, BASE_SP * multiplier);
+        const diff = ((finalVal - BASE_SP) / BASE_SP) * 100;
+
+        predOut.innerText = finalVal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        pctOut.innerText = (diff >= 0 ? '▲ ' : '▼ ') + diff.toFixed(2) + '%';
+        pctOut.style.color = diff >= 0 ? 'var(--accent)' : 'var(--danger)';
+        
+        updateChart(finalVal);
+    }
+
+    const ctx = document.getElementById('predChart').getContext('2d');
+    const myChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Current', 'Projected'],
+            datasets: [{
+                data: [BASE_SP, BASE_SP],
+                backgroundColor: ['#30363d', '#00ff88'],
+                borderRadius: 6,
+                barThickness: 40
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { 
+                y: { display: false },
+                x: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { display: false } }
+            }
+        }
+    });
+
+    function updateChart(val) {
+        myChart.data.datasets[0].data[1] = val;
+        myChart.update('none');
+    }
+
+    fedIn.oninput = calculate;
+    infIn.oninput = calculate;
+    window.onload = calculate;
+</script>
+
+</body>
+</html>

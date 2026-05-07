@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>S&P 500 Oracle | Live</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #0b1016;
+            --card: #1c222d;
+            --text: #ffffff;
+            --accent: #00ff88;
+            --danger: #ff4d4d;
+            --border: #2d3646;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            width: 100%;
+            min-height: 100dvh;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, system-ui, sans-serif;
+            overflow-x: hidden;
+            display: flex;
+            justify-content: center;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 450px;
+            padding: 20px 16px;
+        }
+
+        .header { text-align: center; margin-bottom: 20px; }
+        .status-dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .online { background-color: var(--accent); box-shadow: 0 0 8px var(--accent); }
+        .loading-text { font-size: 10px; text-transform: uppercase; color: #888; }
+
+        .stack { display: flex; flex-direction: column; gap: 12px; }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+        }
+
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .label { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; margin-bottom: 4px; }
+        .value { font-size: 1.4rem; font-weight: 800; color: var(--accent); }
+
+        .slider-box { margin-top: 15px; }
+        .slider-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .slider-tag { background: #2d3646; padding: 2px 8px; border-radius: 6px; font-size: 14px; font-weight: bold; }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #2d3646;
+            border-radius: 10px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            background: #fff;
+            border: 2px solid var(--accent);
+            border-radius: 50%;
+        }
+
+        .result-card {
+            text-align: center;
+            background: linear-gradient(180deg, #242c3a 0%, #1c222d 100%);
+            border: 1px solid #00ff8855;
+        }
+
+        #prediction { font-size: 3rem; font-weight: 900; margin: 10px 0; letter-spacing: -2px; }
+        #pct-change { font-size: 1.2rem; font-weight: 700; margin-bottom: 15px; }
+        
+        .chart-wrap { height: 150px; width: 100%; }
+        .footer { font-size: 10px; color: #555; margin-top: 15px; line-height: 1.4; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="header">
+        <h1>S&P 500 Oracle</h1>
+        <div id="status-bar"><span class="status-dot online"></span><span class="loading-text" id="status-msg">Live Data Active</span></div>
+    </div>
+
+    <div class="stack">
+        <div class="card stat-grid">
+            <div>
+                <p class="label">Latest S&P 500</p>
+                <p class="value" id="base-sp-display">---</p>
+            </div>
+            <div style="text-align: right;">
+                <p class="label">Current CPI</p>
+                <p class="value" id="base-cpi-display">---</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="slider-header">
+                <p class="label">Target Fed Rate</p>
+                <span class="slider-tag"><span id="fed-val">---</span>%</span>
+            </div>
+            <input type="range" id="fed-input" min="0" max="10" step="0.25" value="3.64">
+        </div>
+
+        <div class="card">
+            <div class="slider-header">
+                <p class="label">Target Inflation (CPI)</p>
+                <span class="slider-tag"><span id="cpi-val">---</span>%</span>
+            </div>
+            <input type="range" id="cpi-input" min="-2" max="12" step="0.1" value="3.26">
+        </div>
+
+        <div class="card result-card">
+            <p class="label">Projected Index Level</p>
+            <h2 id="prediction">0.00</h2>
+            <p id="pct-change">0.00%</p>
+            <div class="chart-wrap"><canvas id="predChart"></canvas></div>
+            <p class="footer">
+                Predictive math based on valuation compression models. 
+                Auto-updated via AlphaVantage & Finnhub Public Gateways.
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- API CONFIGURATION ---
+    // Get free keys at: https://www.alphavantage.co/ and https://finnhub.io/
+    const AV_KEY = 'YOUR_ALPHA_VANTAGE_KEY'; 
+    const FH_KEY = 'YOUR_FINNHUB_KEY';
+
+    let current_sp = 7259.22; // Fallbacks
+    let current_cpi = 3.26;
+    let current_fed = 3.64;
+
+    async function fetchLiveData() {
+        document.getElementById('status-msg').innerText = "Syncing with Gazette...";
+        
+        try {
+            // 1. Fetch S&P 500 Index (Finnhub)
+            const spRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=^GSPC&token=${FH_KEY}`);
+            const spData = await spRes.json();
+            if(spData.c) current_sp = spData.c;
+
+            // 2. Fetch CPI & Fed Rate (Alpha Vantage)
+            // Note: These usually update monthly/periodically
+            const cpiRes = await fetch(`https://www.alphavantage.co/query?function=CPI&interval=semiannual&apikey=${AV_KEY}`);
+            const cpiData = await cpiRes.json();
+            if(cpiData.data) current_cpi = parseFloat(cpiData.data[0].value);
+
+            const fedRes = await fetch(`https://www.alphavantage.co/query?function=FEDERAL_FUNDS_RATE&interval=monthly&apikey=${AV_KEY}`);
+            const fedData = await fedRes.json();
+            if(fedData.data) current_fed = parseFloat(fedData.data[0].value);
+
+            updateUI();
+            document.getElementById('status-msg').innerText = "Live Data Synced";
+        } catch (e) {
+            console.error("API Limit reached or error. Using cached fallbacks.", e);
+            document.getElementById('status-msg').innerText = "Using Cached Data";
+            updateUI();
+        }
+    }
+
+    function updateUI() {
+        document.getElementById('base-sp-display').innerText = current_sp.toLocaleString(undefined, {maximumFractionDigits: 0});
+        document.getElementById('base-cpi-display').innerText = current_cpi.toFixed(2) + '%';
+        
+        // Default sliders to the new live numbers
+        document.getElementById('fed-input').value = current_fed;
+        document.getElementById('cpi-input').value = current_cpi;
+        
+        calculate();
+    }
+
+    function calculate() {
+        const tFed = parseFloat(document.getElementById('fed-input').value);
+        const tCpi = parseFloat(document.getElementById('cpi-input').value);
+
+        document.getElementById('fed-val').innerText = tFed.toFixed(2);
+        document.getElementById('cpi-val').innerText = tCpi.toFixed(2);
+
+        // Model: -12.5% valuation drag per 100bps rate move, -5% drag per 1% inflation move
+        const impact = 1 + ((tFed - current_fed) * -0.125) + ((tCpi - current_cpi) * -0.05);
+        const pred = Math.max(0, current_sp * impact);
+        const diff = ((pred - current_sp) / current_sp) * 100;
+
+        document.getElementById('prediction').innerText = pred.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const pctEl = document.getElementById('pct-change');
+        pctEl.innerText = (diff >= 0 ? '▲ ' : '▼ ') + diff.toFixed(2) + '%';
+        pctEl.style.color = diff >= 0 ? 'var(--accent)' : 'var(--danger)';
+
+        updateChart(pred);
+    }
+
+    // Chart logic
+    const ctx = document.getElementById('predChart').getContext('2d');
+    const myChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Current', 'Projected'],
+            datasets: [{
+                data: [current_sp, current_sp],
+                backgroundColor: ['#2d3646', '#00ff88'],
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { display: false }, x: { ticks: { color: '#888' }, grid: { display: false } } }
+        }
+    });
+
+    function updateChart(val) {
+        myChart.data.datasets[0].data[0] = current_sp;
+        myChart.data.datasets[0].data[1] = val;
+        myChart.update('none');
+    }
+
+    document.getElementById('fed-input').oninput = calculate;
+    document.getElementById('cpi-input').oninput = calculate;
+
+    window.onload = fetchLiveData;
+</script>
+
+</body>
+</html>

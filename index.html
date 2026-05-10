@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Market Oracle Pro</title>
+    <title>Market Oracle Pro | 2026</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -12,6 +12,7 @@
             --text: #ffffff;
             --accent: #00ff88;
             --danger: #ff3b3b;
+            --warning: #ffcc00;
             --border: #222733;
         }
 
@@ -32,247 +33,220 @@
             margin: 0 auto;
         }
 
-        /* Header & Refresh Section */
-        .nav {
+        /* Status Bar */
+        .status-bar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 20px 0;
-            border-bottom: 1px solid var(--border);
+            padding: 10px 0;
+            margin-bottom: 10px;
         }
-        .nav h1 { font-size: 1.1rem; font-weight: 800; letter-spacing: 1px; color: var(--accent); }
-        .refresh-btn {
-            background: var(--accent);
-            color: #000;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 11px;
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            font-size: 10px;
             font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .dot { height: 8px; width: 8px; border-radius: 50%; margin-right: 6px; }
+        .dot-online { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+        .dot-offline { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+        
+        .refresh-btn {
+            background: #222733;
+            color: var(--accent);
+            border: 1px solid var(--border);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 800;
             cursor: pointer;
         }
-        .update-time { font-size: 10px; color: #555; text-align: center; margin: 10px 0; text-transform: uppercase; }
 
-        /* Ticker Row */
-        .ticker-wrap {
-            display: flex;
-            gap: 10px;
-            overflow-x: auto;
-            padding: 15px 0;
-            scrollbar-width: none;
+        /* Ticker Cards */
+        .ticker-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 15px;
         }
-        .ticker-wrap::-webkit-scrollbar { display: none; }
-        .ticker-card {
+        .t-card {
             background: var(--card);
-            min-width: 130px;
             padding: 12px;
             border-radius: 12px;
             border: 1px solid var(--border);
+            text-align: center;
         }
-        .t-name { font-size: 10px; color: #888; font-weight: bold; }
-        .t-val { font-size: 1rem; font-weight: 800; margin-top: 4px; }
+        .t-name { font-size: 9px; color: #888; font-weight: bold; margin-bottom: 4px; }
+        .t-val { font-size: 14px; font-weight: 800; }
 
-        /* Main Dashboard */
+        /* Dashboard */
         .stack { display: flex; flex-direction: column; gap: 12px; }
         .card { background: var(--card); border-radius: 16px; padding: 18px; border: 1px solid var(--border); }
-        
         .label { font-size: 10px; font-weight: 800; color: #666; text-transform: uppercase; margin-bottom: 8px; display: block; }
         
-        .baseline-info { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; text-align: center; }
-        .b-val { font-size: 1.2rem; font-weight: 800; }
+        .macro-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: center; }
+        .m-val { font-size: 1.3rem; font-weight: 800; }
 
         /* Sliders */
-        .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .slider-tag { background: #1c212d; padding: 4px 10px; border-radius: 8px; font-weight: 900; font-size: 14px; color: var(--accent); }
+        .s-head { display: flex; justify-content: space-between; margin-bottom: 12px; align-items: center; }
+        .s-tag { background: #1c212d; padding: 4px 10px; border-radius: 8px; font-weight: 900; color: var(--accent); border: 1px solid var(--border); }
         
         input[type="range"] {
-            -webkit-appearance: none;
-            width: 100%; height: 6px;
+            -webkit-appearance: none; width: 100%; height: 6px;
             background: #222733; border-radius: 10px; outline: none;
         }
         input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none; width: 26px; height: 26px;
+            -webkit-appearance: none; width: 24px; height: 24px;
             background: #fff; border: 3px solid var(--accent); border-radius: 50%;
         }
 
         /* Results */
-        .result-card {
+        .res-card {
             text-align: center;
             background: linear-gradient(180deg, #161a24 0%, #090b10 100%);
-            border: 1px solid var(--accent);
-            margin-top: 10px;
+            border: 1px solid rgba(0, 255, 136, 0.2);
         }
-        #prediction { font-size: 3.4rem; font-weight: 900; letter-spacing: -2px; margin: 5px 0; }
-        #pct-change { font-size: 1.2rem; font-weight: 800; margin-bottom: 15px; }
-        
-        .chart-box { height: 150px; width: 100%; }
-        .footer { font-size: 9px; color: #444; padding: 20px; text-align: center; line-height: 1.6; }
+        #prediction { font-size: 3.5rem; font-weight: 900; letter-spacing: -2px; margin: 10px 0; }
+        #change { font-size: 1.2rem; font-weight: 800; margin-bottom: 15px; }
+        .chart-box { height: 160px; }
+
+        .log { font-size: 9px; color: #444; text-align: center; margin-top: 20px; line-height: 1.4; }
     </style>
 </head>
 <body>
 
 <div class="app-wrapper">
-    <div class="nav">
-        <h1>MARKET ORACLE</h1>
-        <button class="refresh-btn" id="refresh-btn" onclick="fetchAllData()">REFRESH</button>
+    <div class="status-bar">
+        <div class="status-indicator">
+            <div id="status-dot" class="dot dot-online"></div>
+            <span id="status-text">Live Sync Active</span>
+        </div>
+        <button class="refresh-btn" onclick="initFetch()">REFRESH</button>
     </div>
-    
-    <p class="update-time" id="last-update">Syncing with Gazettes...</p>
 
-    <div class="ticker-wrap">
-        <div class="ticker-card">
-            <p class="t-name">S&P 500</p>
-            <p class="t-val" id="live-sp">---</p>
-        </div>
-        <div class="ticker-card">
-            <p class="t-name">NASDAQ</p>
-            <p class="t-val" id="live-nasdaq">---</p>
-        </div>
-        <div class="ticker-card">
-            <p class="t-name">DOW JONES</p>
-            <p class="t-val" id="live-dow">---</p>
-        </div>
+    <div class="ticker-row">
+        <div class="t-card"><p class="t-name">S&P 500</p><p class="t-val" id="sp-now">---</p></div>
+        <div class="t-card"><p class="t-name">NASDAQ</p><p class="t-val" id="nd-now">---</p></div>
+        <div class="t-card"><p class="t-name">DOW</p><p class="t-val" id="dw-now">---</p></div>
     </div>
 
     <div class="stack">
-        <div class="card baseline-info">
-            <div>
-                <span class="label">Latest Fed Rate</span>
-                <p class="b-val" id="base-fed-display">---</p>
-            </div>
-            <div>
-                <span class="label">Latest CPI Index</span>
-                <p class="b-val" id="base-cpi-display">---</p>
-            </div>
+        <div class="card macro-grid">
+            <div><span class="label">Latest Fed Rate</span><p class="m-val" id="fed-now">---</p></div>
+            <div><span class="label">CPI Index</span><p class="m-val" id="cpi-now">---</p></div>
         </div>
 
         <div class="card">
-            <div class="slider-header">
-                <span class="label">Target Fed Rate</span>
-                <div class="slider-tag"><span id="fed-val">---</span>%</div>
-            </div>
-            <input type="range" id="fed-input" min="0" max="10" step="0.25" value="3.64">
+            <div class="s-head"><span class="label">Fed Rate Target</span><div class="s-tag"><span id="fed-t">3.64</span>%</div></div>
+            <input type="range" id="fed-in" min="0" max="10" step="0.25" value="3.64">
         </div>
 
         <div class="card">
-            <div class="slider-header">
-                <span class="label">Target Inflation (YoY)</span>
-                <div class="slider-tag"><span id="inf-val">---</span>%</div>
-            </div>
-            <input type="range" id="inf-input" min="-2" max="12" step="0.1" value="3.30">
+            <div class="s-head"><span class="label">Inflation Target (YoY)</span><div class="s-tag"><span id="inf-t">3.30</span>%</div></div>
+            <input type="range" id="inf-in" min="-2" max="12" step="0.1" value="3.30">
         </div>
 
-        <div class="card result-card">
+        <div class="card res-card">
             <span class="label">Projected S&P 500</span>
-            <div id="prediction">7,365.12</div>
-            <div id="pct-change">0.00%</div>
-            <div class="chart-box"><canvas id="predChart"></canvas></div>
+            <div id="prediction">---</div>
+            <div id="change">0.00%</div>
+            <div class="chart-box"><canvas id="pChart"></canvas></div>
         </div>
     </div>
 
-    <p class="footer">
-        Swipe down to refresh. Logic: -12.5% PE drag per 1% rate hike. -5% drag per 1% inflation spike above gazetted baseline. Data via Finnhub & AlphaVantage APIs.
-    </p>
+    <div class="log" id="api-log">Ready. Manual refresh enabled.</div>
 </div>
 
 <script>
-    // --- CONFIGURATION ---
-    // GET YOUR KEYS: finnhub.io & alphavantage.co
-    const FINNHUB_KEY = 'YOUR_FINNHUB_KEY'; 
-    const ALPHA_V_KEY = 'YOUR_ALPHA_VANTAGE_KEY';
+    // CRITICAL: Replace these with your keys!
+    const F_KEY = 'YOUR_FINNHUB_KEY';
+    const A_KEY = 'YOUR_ALPHA_VANTAGE_KEY';
 
-    let BASE_SP = 7365.12;
-    let BASE_FED = 3.64;
-    let BASE_CPI_INDEX = 330.21;
-    let BASE_INF_YOY = 3.30;
+    let baseSP = 7365.12; 
+    let baseFed = 3.64;
+    let baseInf = 3.30;
 
-    // --- DATA FETCHING ---
-    async function fetchAllData() {
-        const btn = document.getElementById('refresh-btn');
-        btn.innerText = "LOADING...";
-        
+    const stText = document.getElementById('status-text');
+    const stDot = document.getElementById('status-dot');
+    const log = document.getElementById('api-log');
+
+    async function initFetch() {
+        stText.innerText = "Syncing Data...";
+        stDot.className = "dot dot-online";
+
         try {
-            // 1. Fetch Real-time S&P 500
-            const spResp = await fetch(`https://finnhub.io/api/v1/quote?symbol=^GSPC&token=${FINNHUB_KEY}`);
-            const spData = await spResp.json();
-            if (spData.c) BASE_SP = spData.c;
+            // 1. Fetch Indices (Finnhub)
+            const spR = await fetch(`https://finnhub.io/api/v1/quote?symbol=^GSPC&token=${F_KEY}`);
+            const ndR = await fetch(`https://finnhub.io/api/v1/quote?symbol=^IXIC&token=${F_KEY}`);
+            const dwR = await fetch(`https://finnhub.io/api/v1/quote?symbol=^DJI&token=${F_KEY}`);
+            
+            const spD = await spR.json();
+            const ndD = await ndR.json();
+            const dwD = await dwR.json();
 
-            // 2. Fetch Nasdaq & Dow
-            const nasResp = await fetch(`https://finnhub.io/api/v1/quote?symbol=^IXIC&token=${FINNHUB_KEY}`);
-            const nasData = await nasResp.json();
-            const dowResp = await fetch(`https://finnhub.io/api/v1/quote?symbol=^DJI&token=${FINNHUB_KEY}`);
-            const dowData = await dowResp.json();
+            if (!spD.c) throw new Error("Finnhub Key Invalid/Limit");
+            baseSP = spD.c;
+            document.getElementById('sp-now').innerText = Math.round(baseSP).toLocaleString();
+            document.getElementById('nd-now').innerText = Math.round(ndD.c).toLocaleString();
+            document.getElementById('dw-now').innerText = Math.round(dwD.c).toLocaleString();
 
-            // 3. Fetch Macro (Latest Fed Rate)
-            const fedResp = await fetch(`https://www.alphavantage.co/query?function=FEDERAL_FUNDS_RATE&interval=monthly&apikey=${ALPHA_V_KEY}`);
-            const fedData = await fedResp.json();
-            if (fedData.data) BASE_FED = parseFloat(fedData.data[0].value);
+            // 2. Fetch Macro (Alpha Vantage)
+            const fedR = await fetch(`https://www.alphavantage.co/query?function=FEDERAL_FUNDS_RATE&interval=monthly&apikey=${A_KEY}`);
+            const cpiR = await fetch(`https://www.alphavantage.co/query?function=CPI&interval=semiannual&apikey=${A_KEY}`);
+            
+            const fedD = await fedR.json();
+            const cpiD = await cpiR.json();
 
-            // 4. Fetch Latest CPI
-            const cpiResp = await fetch(`https://www.alphavantage.co/query?function=CPI&interval=semiannual&apikey=${ALPHA_V_KEY}`);
-            const cpiData = await cpiResp.json();
-            if (cpiData.data) BASE_CPI_INDEX = parseFloat(cpiData.data[0].value);
+            if (fedD.data) {
+                baseFed = parseFloat(fedD.data[0].value);
+                document.getElementById('fed-now').innerText = baseFed + "%";
+                document.getElementById('fed-in').value = baseFed;
+            }
+            if (cpiD.data) {
+                document.getElementById('cpi-now').innerText = parseFloat(cpiD.data[0].value).toFixed(2);
+            }
 
-            updateUI(nasData.c, dowData.c);
-            btn.innerText = "REFRESH";
-            document.getElementById('last-update').innerText = "Last Sync: " + new Date().toLocaleTimeString();
+            stText.innerText = "Live Sync Active";
+            log.innerText = "Last Updated: " + new Date().toLocaleTimeString();
+            runCalc();
+
         } catch (e) {
-            console.error("API Limit or Key Error", e);
-            btn.innerText = "OFFLINE";
-            updateUI(21440, 44890); // Fallback
+            console.error(e);
+            stText.innerText = "OFFLINE (Limit reached)";
+            stDot.className = "dot dot-offline";
+            log.innerText = "Error: API Rate limit or missing key. Using cached data.";
+            runCalc(); // Use fallbacks
         }
     }
 
-    function updateUI(nasPrice, dowPrice) {
-        document.getElementById('live-sp').innerText = BASE_SP.toLocaleString(undefined, {maximumFractionDigits:0});
-        document.getElementById('live-nasdaq').innerText = nasPrice.toLocaleString(undefined, {maximumFractionDigits:0});
-        document.getElementById('live-dow').innerText = dowPrice.toLocaleString(undefined, {maximumFractionDigits:0});
-        
-        document.getElementById('base-fed-display').innerText = BASE_FED.toFixed(2) + "%";
-        document.getElementById('base-cpi-display').innerText = BASE_CPI_INDEX.toFixed(2);
-        
-        // Sync sliders to actual baselines
-        document.getElementById('fed-input').value = BASE_FED;
-        document.getElementById('inf-input').value = BASE_INF_YOY;
-        
-        calculate();
-    }
+    function runCalc() {
+        const tFed = parseFloat(document.getElementById('fed-in').value);
+        const tInf = parseFloat(document.getElementById('inf-in').value);
+        document.getElementById('fed-t').innerText = tFed.toFixed(2);
+        document.getElementById('inf-t').innerText = tInf.toFixed(2);
 
-    function calculate() {
-        const tFed = parseFloat(document.getElementById('fed-input').value);
-        const tInf = parseFloat(document.getElementById('inf-input').value);
+        const impact = 1 + ((tFed - baseFed) * -0.125) + ((tInf - baseInf) * -0.05);
+        const res = Math.max(0, baseSP * impact);
+        const diff = ((res - baseSP) / baseSP) * 100;
 
-        document.getElementById('fed-val').innerText = tFed.toFixed(2);
-        document.getElementById('inf-val').innerText = tInf.toFixed(2);
-
-        // Predictive Multiplier
-        const impact = 1 + ((tFed - BASE_FED) * -0.125) + ((tInf - BASE_INF_YOY) * -0.05);
-        const res = Math.max(0, BASE_SP * impact);
-        const diff = ((res - BASE_SP) / BASE_SP) * 100;
-
-        document.getElementById('prediction').innerText = res.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        const pctEl = document.getElementById('pct-change');
-        pctEl.innerText = (diff >= 0 ? '▲ ' : '▼ ') + diff.toFixed(2) + '%';
-        pctEl.style.color = diff >= 0 ? 'var(--accent)' : 'var(--danger)';
+        document.getElementById('prediction').innerText = res.toLocaleString(undefined, {maximumFractionDigits: 2});
+        const cEl = document.getElementById('change');
+        cEl.innerText = (diff >= 0 ? '▲ ' : '▼ ') + diff.toFixed(2) + '%';
+        cEl.style.color = diff >= 0 ? 'var(--accent)' : 'var(--danger)';
         
         updateChart(res);
     }
 
-    // Swipe-to-refresh logic
-    let startY = 0;
-    window.addEventListener('touchstart', e => startY = e.touches[0].pageY);
-    window.addEventListener('touchend', e => {
-        if (e.changedTouches[0].pageY - startY > 150 && window.scrollY === 0) fetchAllData();
-    });
-
-    // Chart init
-    const ctx = document.getElementById('predChart').getContext('2d');
+    // Chart
+    const ctx = document.getElementById('pChart').getContext('2d');
     const myChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: ['Today', 'Projected'],
+            labels: ['Now', 'Oracle'],
             datasets: [{
-                data: [BASE_SP, BASE_SP],
+                data: [baseSP, baseSP],
                 backgroundColor: ['#222733', '#00ff88'],
                 borderRadius: 8
             }]
@@ -280,20 +254,20 @@
         options: {
             responsive: true, maintainAspectRatio: false,
             plugins: { legend: { display: false } },
-            scales: { y: { display: false }, x: { ticks: { color: '#444' }, grid: { display: false } } }
+            scales: { y: { display: false }, x: { grid: { display: false }, ticks: { color: '#444' } } }
         }
     });
 
-    function updateChart(val) {
-        myChart.data.datasets[0].data[0] = BASE_SP;
-        myChart.data.datasets[0].data[1] = val;
+    function updateChart(v) {
+        myChart.data.datasets[0].data[0] = baseSP;
+        myChart.data.datasets[0].data[1] = v;
         myChart.update('none');
     }
 
-    document.getElementById('fed-input').oninput = calculate;
-    document.getElementById('inf-input').oninput = calculate;
-    window.onload = fetchAllData;
+    document.getElementById('fed-in').oninput = runCalc;
+    document.getElementById('inf-in').oninput = runCalc;
+    window.onload = initFetch;
 </script>
-
 </body>
 </html>
+            

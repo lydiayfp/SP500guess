@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Market Oracle Pro | 2026</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --text: #f0f6fc;
+            --accent: #00ff88;
+            --danger: #ff4d4d;
+            --border: #30363d;
+            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: var(--font);
+            display: flex;
+            justify-content: center;
+            min-height: 100dvh;
+            padding: env(safe-area-inset-top) 15px 40px;
+        }
+
+        .container { width: 100%; max-width: 420px; }
+
+        /* Header & Status */
+        header { display: flex; justify-content: space-between; align-items: center; padding: 20px 0 10px; }
+        .status-pill {
+            display: flex; align-items: center; gap: 6px;
+            background: #21262d; border: 1px solid var(--border);
+            padding: 5px 12px; border-radius: 20px; font-size: 10px; font-weight: 800; text-transform: uppercase;
+        }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: #444; }
+        .dot.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+        
+        .refresh-btn {
+            background: var(--accent); color: #000; border: none;
+            padding: 8px 16px; border-radius: 8px; font-size: 11px; font-weight: 900;
+            cursor: pointer; transition: opacity 0.2s;
+        }
+        .refresh-btn:active { opacity: 0.7; }
+
+        /* Stock Ticker Grid */
+        .ticker-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
+        .ticker-card {
+            background: var(--card); border: 1px solid var(--border);
+            padding: 12px 8px; border-radius: 12px; text-align: center;
+        }
+        .ticker-label { font-size: 9px; color: #8b949e; font-weight: 700; margin-bottom: 4px; }
+        .ticker-val { font-size: 14px; font-weight: 800; letter-spacing: -0.5px; }
+
+        /* Main Dashboard */
+        .stack { display: flex; flex-direction: column; gap: 12px; }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+        
+        .label { font-size: 10px; font-weight: 800; color: #8b949e; text-transform: uppercase; margin-bottom: 10px; display: block; }
+        
+        /* Macro Data row */
+        .macro-row { display: flex; justify-content: space-between; text-align: center; }
+        .macro-val { font-size: 1.4rem; font-weight: 800; }
+
+        /* Sliders */
+        .control-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .val-tag { background: #00ff881a; color: var(--accent); padding: 4px 10px; border-radius: 8px; font-weight: 900; font-size: 14px; }
+        
+        input[type="range"] {
+            -webkit-appearance: none; width: 100%; height: 6px; background: #30363d; border-radius: 10px; outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 24px; height: 24px; background: #fff; border: 3px solid var(--accent); border-radius: 50%;
+        }
+
+        /* Result Section */
+        .result-card {
+            text-align: center; background: linear-gradient(180deg, #1c2128 0%, #0d1117 100%);
+            border: 1px solid #00ff8844; margin-top: 10px;
+        }
+        #prediction { font-size: 3.6rem; font-weight: 900; letter-spacing: -2px; margin: 5px 0; }
+        #pct-text { font-size: 1.2rem; font-weight: 800; margin-bottom: 15px; }
+        .chart-container { height: 160px; margin-top: 10px; }
+
+        .footer-log { font-size: 9px; color: #484f58; text-align: center; margin-top: 20px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div class="status-pill">
+            <div id="status-dot" class="dot"></div>
+            <span id="status-text">Ready</span>
+        </div>
+        <button class="refresh-btn" onclick="syncApp()">REFRESH</button>
+    </header>
+
+    <div class="ticker-grid">
+        <div class="ticker-card">
+            <p class="ticker-label">S&P 500</p>
+            <p class="ticker-val" id="cur-sp">7,365</p>
+        </div>
+        <div class="ticker-card">
+            <p class="ticker-label">NASDAQ</p>
+            <p class="ticker-val" id="cur-nd">21,440</p>
+        </div>
+        <div class="ticker-card">
+            <p class="ticker-label">DOW</p>
+            <p class="ticker-val" id="cur-dw">44,890</p>
+        </div>
+    </div>
+
+    <div class="stack">
+        <div class="card">
+            <div class="macro-row">
+                <div style="flex: 1;">
+                    <span class="label">Fed Funds Rate</span>
+                    <p class="macro-val" id="base-fed-val">3.64%</p>
+                </div>
+                <div style="border-left: 1px solid var(--border); flex: 1;">
+                    <span class="label">CPI Index Pts</span>
+                    <p class="macro-val" id="base-cpi-val">330.21</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="control-head">
+                <span class="label">Target Fed Rate</span>
+                <div class="val-tag"><span id="target-fed-label">3.64</span>%</div>
+            </div>
+            <input type="range" id="fed-slider" min="0" max="10" step="0.25" value="3.64">
+        </div>
+
+        <div class="card">
+            <div class="control-head">
+                <span class="label">Target Inflation (YoY)</span>
+                <div class="val-tag"><span id="target-inf-label">3.30</span>%</div>
+            </div>
+            <input type="range" id="inf-slider" min="-2" max="12" step="0.1" value="3.30">
+        </div>
+
+        <div class="card result-card">
+            <span class="label">Projected S&P 500 Level</span>
+            <div id="prediction">7,365.12</div>
+            <div id="pct-text">0.00%</div>
+            <div class="chart-container">
+                <canvas id="predChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer-log" id="log-text">
+        System Initialized. Baseline: May 2026. <br>
+        Models: PE Compression -12.5% per 1% Rate Hike.
+    </div>
+</div>
+
+<script>
+    // --- API KEYS (Replace with yours) ---
+    const FINNHUB_KEY = 'YOUR_FINNHUB_KEY'; 
+    const ALPHA_V_KEY = 'YOUR_ALPHA_VANTAGE_KEY';
+
+    // --- DEFAULTS / CACHE ---
+    let liveSP = 7365.12;
+    let liveFed = 3.64;
+    let liveInf = 3.30; // Current YoY Target
+    let liveCPI = 330.21; // Point Index
+
+    // --- DOM ELEMENTS ---
+    const fedS = document.getElementById('fed-slider');
+    const infS = document.getElementById('inf-slider');
+    const predO = document.getElementById('prediction');
+    const pctO = document.getElementById('pct-text');
+    const logO = document.getElementById('log-text');
+    const dotO = document.getElementById('status-dot');
+    const stO = document.getElementById('status-text');
+
+    async function syncApp() {
+        stO.innerText = "Syncing...";
+        dotO.className = "dot active";
+        
+        try {
+            // 1. Fetch Stocks (Higher limit API)
+            const spRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=^GSPC&token=${FINNHUB_KEY}`);
+            const ndRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=^IXIC&token=${FINNHUB_KEY}`);
+            const dwRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=^DJI&token=${FINNHUB_KEY}`);
+            
+            const spD = await spRes.json();
+            const ndD = await ndRes.json();
+            const dwD = await dwRes.json();
+
+            if (spD.c) {
+                liveSP = spD.c;
+                document.getElementById('cur-sp').innerText = Math.round(spD.c).toLocaleString();
+                document.getElementById('cur-nd').innerText = Math.round(ndD.c).toLocaleString();
+                document.getElementById('cur-dw').innerText = Math.round(dwD.c).toLocaleString();
+            }
+
+            // 2. Fetch Macro (SMART CACHE - Only fetch once per day)
+            const lastUpdate = localStorage.getItem('lastMacroUpdate');
+            if (lastUpdate && (Date.now() - lastUpdate < 86400000)) {
+                liveFed = parseFloat(localStorage.getItem('cachedFed'));
+                liveCPI = parseFloat(localStorage.getItem('cachedCPI'));
+                logO.innerHTML = `Stocks Live. Macro Data cached to save API limits.<br>Updated: ${new Date(parseInt(lastUpdate)).toLocaleTimeString()}`;
+            } else {
+                const fedRes = await fetch(`https://www.alphavantage.co/query?function=FEDERAL_FUNDS_RATE&interval=monthly&apikey=${ALPHA_V_KEY}`);
+                const cpiRes = await fetch(`https://www.alphavantage.co/query?function=CPI&interval=semiannual&apikey=${ALPHA_V_KEY}`);
+                const fedD = await fedRes.json();
+                const cpiD = await cpiRes.json();
+
+                if (fedD.data && cpiD.data) {
+                    liveFed = parseFloat(fedD.data[0].value);
+                    liveCPI = parseFloat(cpiD.data[0].value);
+                    localStorage.setItem('cachedFed', liveFed);
+                    localStorage.setItem('cachedCPI', liveCPI);
+                    localStorage.setItem('lastMacroUpdate', Date.now());
+                }
+            }
+
+            updateUI();
+        } catch (e) {
+            console.error(e);
+            stO.innerText = "Limit Reached / Offline";
+            dotO.className = "dot";
+            logO.innerHTML = "API limit hit. Operating on May 2026 Gazetted Baselines.";
+            updateUI();
+        }
+    }
+
+    function updateUI() {
+        document.getElementById('base-fed-val').innerText = liveFed + "%";
+        document.getElementById('base-cpi-val').innerText = liveCPI.toFixed(2);
+        
+        // Sync sliders to actual live baseline if just loaded
+        fedS.value = liveFed;
+        infS.value = liveInf;
+        
+        calculate();
+    }
+
+    function calculate() {
+        const tFed = parseFloat(fedS.value);
+        const tInf = parseFloat(infS.value);
+
+        document.getElementById('target-fed-label').innerText = tFed.toFixed(2);
+        document.getElementById('target-inf-label').innerText = tInf.toFixed(2);
+
+        // FORMULA: -12.5% Valuation drag per 1% Rate change | -5% per 1% Inflation spike
+        const impact = 1 + ((tFed - liveFed) * -0.125) + ((tInf - liveInf) * -0.05);
+        const result = Math.max(0, liveSP * impact);
+        const diff = ((result - liveSP) / liveSP) * 100;
+
+        predO.innerText = result.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        pctO.innerText = (diff >= 0 ? '▲ ' : '▼ ') + diff.toFixed(2) + '%';
+        pctO.style.color = diff >= 0 ? 'var(--accent)' : 'var(--danger)';
+        
+        updateChart(result);
+    }
+
+    // --- CHARTING ---
+    const ctx = document.getElementById('predChart').getContext('2d');
+    const myChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Current', 'Oracle'],
+            datasets: [{
+                data: [liveSP, liveSP],
+                backgroundColor: ['#30363d', '#00ff88'],
+                borderRadius: 8,
+                barThickness: 50
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { 
+                y: { display: false },
+                x: { grid: { display: false }, ticks: { color: '#8b949e', font: { weight: 'bold' } } }
+            }
+        }
+    });
+
+    function updateChart(val) {
+        myChart.data.datasets[0].data[0] = liveSP;
+        myChart.data.datasets[0].data[1] = val;
+        myChart.update('none');
+    }
+
+    // --- EVENT LISTENERS ---
+    fedS.oninput = calculate;
+    infS.oninput = calculate;
+    window.onload = syncApp;
+</script>
+</body>
+</html>

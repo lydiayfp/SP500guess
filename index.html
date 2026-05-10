@@ -160,51 +160,63 @@
 </div>
 
 <script>
-    // CRITICAL: Replace these with your keys!
-    const F_KEY = 'YOUR_FINNHUB_KEY';
-    const A_KEY = 'YOUR_ALPHA_VANTAGE_KEY';
+   // --- CONFIGURATION ---
+const F_KEY = 'YOUR_FINNHUB_KEY'; 
+const A_KEY = 'YOUR_ALPHA_VANTAGE_KEY';
 
-    let baseSP = 7365.12; 
-    let baseFed = 3.64;
-    let baseInf = 3.30;
+// May 2026 Gazetted Baselines (Fallbacks)
+let baseSP = 7365.12; 
+let baseFed = 3.64;
+let baseInf = 3.30;
 
-    const stText = document.getElementById('status-text');
-    const stDot = document.getElementById('status-dot');
-    const log = document.getElementById('api-log');
+const stText = document.getElementById('status-text');
+const stDot = document.getElementById('status-dot');
 
-    async function initFetch() {
-    stText.innerText = "Syncing Data...";
+async function initFetch() {
+    stText.innerText = "Syncing Stocks...";
     stDot.className = "dot dot-online";
 
     try {
-        // 1. STOCKS: Fetch every time (Higher limit)
+        // 1. STOCKS: Fetch live (60 calls per minute limit)
         const spR = await fetch(`https://finnhub.io/api/v1/quote?symbol=^GSPC&token=${F_KEY}`);
         const spD = await spR.json();
+        
         if (spD.c) {
             baseSP = spD.c;
             document.getElementById('sp-now').innerText = Math.round(baseSP).toLocaleString();
         }
 
-        // 2. MACRO DATA: Only fetch once per day to save Alpha Vantage credits
-        const lastMacroUpdate = localStorage.getItem('lastMacroUpdate');
+        // 2. MACRO DATA: Check Cache first to save Alpha Vantage points
+        const lastUpdate = localStorage.getItem('lastMacroUpdate');
         const now = Date.now();
         
-        // If 24 hours haven't passed, use saved values
-        if (lastMacroUpdate && (now - lastMacroUpdate < 86400000)) {
+        // If we fetched macro data less than 24 hours ago, USE CACHE
+        if (lastUpdate && (now - lastUpdate < 86400000)) {
             baseFed = parseFloat(localStorage.getItem('cachedFed'));
-            document.getElementById('fed-now').innerText = baseFed + "%";
-            document.getElementById('cpi-now').innerText = localStorage.getItem('cachedCPI');
-            log.innerText = "Stocks live. Macro data cached (Updated < 24h ago).";
-        } else {
-            // Fetch fresh Macro data
-            const fedR = await fetch(`https://www.alphavantage.co/query?function=FEDERAL_FUNDS_RATE&interval=monthly&apikey=${A_KEY}`);
-            const fedD = await fedR.json();
+            const cachedCPI = localStorage.getItem('cachedCPI');
             
-            if (fedD.data) {
+            document.getElementById('fed-now').innerText = baseFed + "%";
+            document.getElementById('cpi-now').innerText = cachedCPI;
+            document.getElementById('api-log').innerText = "Stocks live. Macro data from cache (saves credits).";
+        } else {
+            // Only fetch from Alpha Vantage if cache is old or empty
+            const fedR = await fetch(`https://www.alphavantage.co/query?function=FEDERAL_FUNDS_RATE&interval=monthly&apikey=${A_KEY}`);
+            const cpiR = await fetch(`https://www.alphavantage.co/query?function=CPI&interval=semiannual&apikey=${A_KEY}`);
+            
+            const fedD = await fedR.json();
+            const cpiD = await cpiR.json();
+
+            if (fedD.data && cpiD.data) {
                 baseFed = parseFloat(fedD.data[0].value);
+                const currentCPI = parseFloat(cpiD.data[0].value).toFixed(2);
+                
+                // Save to Cache
                 localStorage.setItem('cachedFed', baseFed);
+                localStorage.setItem('cachedCPI', currentCPI);
                 localStorage.setItem('lastMacroUpdate', now);
-                // (Repeat similar logic for CPI)
+
+                document.getElementById('fed-now').innerText = baseFed + "%";
+                document.getElementById('cpi-now').innerText = currentCPI;
             }
         }
 
@@ -212,7 +224,10 @@
         runCalc();
 
     } catch (e) {
+        // If Limit is reached, the app stays "Online" using the last known good data
         stText.innerText = "OFFLINE (LIMIT REACHED)";
         stDot.className = "dot dot-offline";
+        document.getElementById('api-log').innerText = "API Limit hit. Using last known gazetted values.";
+        runCalc(); 
     }
 }

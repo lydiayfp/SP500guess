@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Market Oracle | Yahoo Live</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #090b10;
+            --card: #12151e;
+            --text: #ffffff;
+            --accent: #00ff88;
+            --danger: #ff3b3b;
+            --border: #222733;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            background-color: var(--bg); color: var(--text);
+            font-family: -apple-system, system-ui, sans-serif;
+            display: flex; justify-content: center; min-height: 100dvh;
+            padding: env(safe-area-inset-top) 15px 40px;
+        }
+
+        .app { width: 100%; max-width: 420px; }
+
+        /* Header */
+        .status-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .badge {
+            display: flex; align-items: center; gap: 8px; background: #1c212d;
+            padding: 6px 12px; border-radius: 20px; font-size: 10px; font-weight: 800;
+            border: 1px solid var(--border); text-transform: uppercase;
+        }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: #444; }
+        .dot.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+        
+        .btn-refresh {
+            background: var(--accent); color: #000; border: none;
+            padding: 10px 20px; border-radius: 12px; font-size: 11px; font-weight: 900;
+            cursor: pointer;
+        }
+
+        /* Indices */
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        .card-sm {
+            background: var(--card); border: 1px solid var(--border);
+            padding: 15px 5px; border-radius: 16px; text-align: center;
+        }
+        .label-xs { font-size: 9px; color: #666; font-weight: 800; margin-bottom: 5px; text-transform: uppercase; }
+        .val-md { font-size: 15px; font-weight: 900; }
+
+        /* Main UI */
+        .card-main { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 20px; margin-bottom: 15px; }
+        .label-sm { font-size: 10px; font-weight: 800; color: #555; text-transform: uppercase; margin-bottom: 15px; display: block; }
+        
+        .macro-box { display: flex; justify-content: space-around; text-align: center; }
+        .val-lg { font-size: 1.6rem; font-weight: 900; }
+
+        /* Sliders */
+        .s-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .s-tag { background: #00ff8815; color: var(--accent); padding: 5px 12px; border-radius: 10px; font-weight: 900; font-size: 14px; }
+        
+        input[type="range"] {
+            -webkit-appearance: none; width: 100%; height: 6px; background: #222733; border-radius: 10px; outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 26px; height: 26px; background: #fff; border: 4px solid var(--accent); border-radius: 50%;
+        }
+
+        /* Result */
+        .res-card {
+            text-align: center; background: linear-gradient(180deg, #161a24 0%, #090b10 100%);
+            border: 1px solid #00ff8833;
+        }
+        #p-level { font-size: 3.8rem; font-weight: 900; letter-spacing: -3px; margin: 5px 0; }
+        #p-pct { font-size: 1.3rem; font-weight: 800; margin-bottom: 20px; }
+        .chart-wrap { height: 180px; }
+
+        .log { font-size: 9px; color: #444; text-align: center; margin-top: 25px; line-height: 1.6; }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <div class="status-row">
+        <div class="badge">
+            <div id="dot" class="dot"></div>
+            <span id="st-text">Gazette Mode</span>
+        </div>
+        <button class="btn-refresh" onclick="fetchYahoo()">REFRESH</button>
+    </div>
+
+    <div class="grid-3">
+        <div class="card-sm"><p class="label-xs">S&P 500</p><p class="val-md" id="live-sp">7,365</p></div>
+        <div class="card-sm"><p class="label-xs">NASDAQ</p><p class="val-md" id="live-nd">21,440</p></div>
+        <div class="card-sm"><p class="label-xs">DOW 30</p><p class="val-md" id="live-dw">44,890</p></div>
+    </div>
+
+    <div class="card-main">
+        <div class="macro-box">
+            <div><span class="label-sm">Fed Rate</span><p class="val-lg" id="fed-base">3.64%</p></div>
+            <div style="width: 1px; background: #222;"></div>
+            <div><span class="label-sm">CPI Index</span><p class="val-lg" id="cpi-base">330.21</p></div>
+        </div>
+    </div>
+
+    <div class="card-main">
+        <div class="s-head">
+            <span class="label-sm">Target Fed Rate</span>
+            <div class="s-tag"><span id="sl-fed-val">3.64</span>%</div>
+        </div>
+        <input type="range" id="sl-fed" min="0" max="10" step="0.25" value="3.64">
+    </div>
+
+    <div class="card-main">
+        <div class="s-head">
+            <span class="label-sm">Target Inflation (YoY)</span>
+            <div class="s-tag"><span id="sl-inf-val">3.30</span>%</div>
+        </div>
+        <input type="range" id="sl-inf" min="-2" max="12" step="0.1" value="3.30">
+    </div>
+
+    <div class="card-main res-card">
+        <span class="label-sm">Projected S&P 500 Level</span>
+        <div id="p-level">7,365.12</div>
+        <div id="p-pct">0.00%</div>
+        <div class="chart-wrap"><canvas id="chart"></canvas></div>
+    </div>
+
+    <div class="log" id="footer-log">
+        Status: Loaded May 2026 Baselines. <br>
+        Source: Federal Reserve (H.15) & BLS Gazette.
+    </div>
+</div>
+
+<script>
+    // --- PERSISTENT DATA STATE ---
+    // These never reset to null. If fetch fails, we keep these.
+    let data = {
+        sp: 7365.12,
+        nd: 21440.00,
+        dw: 44890.00,
+        fed: 3.64,
+        inf: 3.30,
+        cpi: 330.21
+    };
+
+    async function fetchYahoo() {
+        const dot = document.getElementById('dot');
+        const st = document.getElementById('st-text');
+        const log = document.getElementById('footer-log');
+        
+        st.innerText = "Syncing Yahoo...";
+        dot.className = "dot active";
+
+        // Using a CORS proxy to bypass browser restrictions
+        const proxy = "https://api.allorigins.win/get?url=";
+        const yahooUrl = encodeURIComponent("https://query1.finance.yahoo.com/v8/finance/chart/^GSPC?interval=1m&range=1d");
+
+        try {
+            const response = await fetch(proxy + yahooUrl);
+            const json = await response.json();
+            const result = JSON.parse(json.contents);
+            
+            const price = result.chart.result[0].indicators.quote[0].close.filter(x => x !== null).pop();
+            
+            if (price) {
+                data.sp = price;
+                document.getElementById('live-sp').innerText = Math.round(data.sp).toLocaleString();
+                st.innerText = "LIVE SYNC ACTIVE";
+                log.innerHTML = "Yahoo Finance Live Data Connected.<br>Last Sync: " + new Date().toLocaleTimeString();
+            }
+        } catch (e) {
+            console.warn("Sync failed. Keeping gazette data.");
+            st.innerText = "GAZETTE MODE (OFFLINE)";
+            dot.className = "dot";
+            log.innerHTML = "Yahoo Finance Blocked (CORS).<br>Using May 2026 Gazetted Baseline.";
+        }
+        updateUI();
+    }
+
+    function updateUI() {
+        document.getElementById('fed-base').innerText = data.fed + "%";
+        document.getElementById('cpi-base').innerText = data.cpi.toFixed(2);
+        calculate();
+    }
+
+    function calculate() {
+        const tFed = parseFloat(document.getElementById('sl-fed').value);
+        const tInf = parseFloat(document.getElementById('sl-inf').value);
+
+        document.getElementById('sl-fed-val').innerText = tFed.toFixed(2);
+        document.getElementById('sl-inf-val').innerText = tInf.toFixed(2);
+
+        // FORMULA: -12.5% Compression per 1% Rate Δ | -5% per 1% Inflation Δ
+        const impact = 1 + ((tFed - data.fed) * -0.125) + ((tInf - data.inf) * -0.05);
+        const result = Math.max(0, data.sp * impact);
+        const diff = ((result - data.sp) / data.sp) * 100;
+
+        document.getElementById('p-level').innerText = result.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const pct = document.getElementById('p-pct');
+        pct.innerText = (diff >= 0 ? '▲ ' : '▼ ') + diff.toFixed(2) + '%';
+        pct.style.color = diff >= 0 ? 'var(--accent)' : 'var(--danger)';
+
+        updateChart(result);
+    }
+
+    const ctx = document.getElementById('chart').getContext('2d');
+    const myChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Now', 'Oracle'],
+            datasets: [{
+                data: [data.sp, data.sp],
+                backgroundColor: ['#222733', '#00ff88'],
+                borderRadius: 12,
+                barThickness: 50
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { 
+                y: { display: false }, 
+                x: { grid: { display: false }, ticks: { color: '#555', font: { weight: 'bold' } } } 
+            }
+        }
+    });
+
+    function updateChart(val) {
+        myChart.data.datasets[0].data[0] = data.sp;
+        myChart.data.datasets[0].data[1] = val;
+        myChart.update('none');
+    }
+
+    document.getElementById('sl-fed').oninput = calculate;
+    document.getElementById('sl-inf').oninput = calculate;
+    
+    // Auto-fetch on load
+    window.onload = fetchYahoo;
+</script>
+</body>
+</html>

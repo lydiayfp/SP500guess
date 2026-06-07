@@ -3,6 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Oracle | Predictive Calculator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --bg: #090b10; --card: #12151e; --accent: #00ff88; --text: #fff; --border: #222733; }
+        body { background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; padding: 20px; }
+        .container { max-width: 420px; margin: auto; }
+        .card { background: var(--card); padding: 20px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 15px; }
+        .label { font-size: 10px; color: #888; text-transform: uppercase; margin-bottom: 8px; }
+        .val { font-size: 1.5rem; font-weight: 900; color: var(--accent); }
+        .slider { width: 100%; margin-top: 10px; }
+        .refresh-btn { background: var(--accent); color: #000; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: 900; cursor: pointer; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <button class="refresh-btn" onclick="sync()">REFRESH LIVE MARKET DATA</button>
+    
+    <div class="card" style="margin-top:20px;">
+        <div class="label">Projected S&P 500 Level</div>
+        <div class="val" id="proj" style="font-size: 3rem;">7,383.74</div>
+        <div id="pct-diff" style="font-weight: 800;">0.00%</div>
+    </div>
+
+    <div class="card">
+        <div class="label">Target Fed Rate (Slider)</div>
+        <input type="range" class="slider" id="fed-slide" min="0" max="10" step="0.1" value="3.62">
+        <div id="fed-val" class="val" style="font-size: 1rem;">3.62%</div>
+    </div>
+
+    <div class="card">
+        <div class="label">Target Inflation (Slider)</div>
+        <input type="range" class="slider" id="cpi-slide" min="0" max="10" step="0.1" value="3.81">
+        <div id="cpi-val" class="val" style="font-size: 1rem;">3.81%</div>
+    </div>
+</div>
+
+<script>
+    // Validated June 2026 Baselines
+    const base = { sp: 7383.74, fed: 3.62, cpi: 3.81 };
+
+    function calculate() {
+        const tFed = parseFloat(document.getElementById('fed-slide').value);
+        const tCpi = parseFloat(document.getElementById('cpi-slide').value);
+        
+        document.getElementById('fed-val').innerText = tFed.toFixed(2) + "%";
+        document.getElementById('cpi-val').innerText = tCpi.toFixed(2) + "%";
+
+        // Valuation Compression Formula
+        const impact = 1 + ((tFed - base.fed) * -0.125) + ((tCpi - base.cpi) * -0.05);
+        const projection = base.sp * impact;
+        const diff = ((projection - base.sp) / base.sp) * 100;
+
+        document.getElementById('proj').innerText = projection.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const pctEl = document.getElementById('pct-diff');
+        pctEl.innerText = (diff >= 0 ? '▲' : '▼') + ' ' + Math.abs(diff).toFixed(2) + '%';
+        pctEl.style.color = diff >= 0 ? '#00ff88' : '#ff3b3b';
+    }
+
+    async function sync() {
+        // Fetches from Yahoo (via proxy) and updates base object
+        try {
+            const res = await fetch("https://api.allorigins.win/get?url=" + encodeURIComponent("https://query1.finance.yahoo.com/v8/finance/chart/^GSPC"));
+            const json = await res.json();
+            const data = JSON.parse(json.contents);
+            base.sp = data.chart.result[0].meta.regularMarketPrice;
+            calculate();
+        } catch(e) {
+            console.log("Using cached baselines.");
+        }
+    }
+
+    document.getElementById('fed-slide').oninput = calculate;
+    document.getElementById('cpi-slide').oninput = calculate;
+</script>
+</body>
+</html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Market Oracle Pro | June 2026</title>
     <style>
         :root { --bg: #090b10; --card: #12151e; --accent: #00ff88; --text: #fff; --border: #222733; }

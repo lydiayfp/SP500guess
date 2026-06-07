@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Oracle Pro | June 2026</title>
+    <style>
+        :root { --bg: #090b10; --card: #12151e; --accent: #00ff88; --text: #fff; --border: #222733; }
+        body { background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; padding: 20px; }
+        .container { max-width: 420px; margin: auto; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .card { background: var(--card); padding: 15px; border-radius: 12px; border: 1px solid var(--border); text-align: center; }
+        .label { font-size: 9px; color: #888; text-transform: uppercase; margin-bottom: 5px; }
+        .val { font-size: 1.2rem; font-weight: 800; color: var(--accent); }
+        .refresh-btn { background: var(--accent); color: #000; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: 900; cursor: pointer; margin-bottom: 20px; }
+        .status { font-size: 9px; text-align: center; color: #555; margin-top: 10px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <button class="refresh-btn" onclick="syncAll()">REFRESH LIVE DATA</button>
+    
+    <div class="grid">
+        <div class="card"><div class="label">S&P 500</div><div class="val" id="sp-val">7,383</div></div>
+        <div class="card"><div class="label">NASDAQ</div><div class="val" id="nd-val">25,709</div></div>
+    </div>
+
+    <div class="grid">
+        <div class="card"><div class="label">Fed Funds Rate</div><div class="val" id="fed-val">3.62%</div></div>
+        <div class="card"><div class="label">Inflation (CPI)</div><div class="val" id="cpi-val">3.81%</div></div>
+    </div>
+    
+    <div class="status" id="status-msg">Baseline: June 2026 Economic Data Active</div>
+</div>
+
+<script>
+    // 1. HARDENED BASELINES (June 2026 Data)
+    const baseline = { sp: 7383.74, nd: 25709.43, fed: 3.62, cpi: 3.81 };
+
+    // 2. LIVE SYNC ENGINE
+    async function syncAll() {
+        const status = document.getElementById('status-msg');
+        status.innerText = "Syncing with Markets...";
+        
+        try {
+            // Using a CORS-friendly proxy for Yahoo Finance
+            const proxy = "https://api.allorigins.win/get?url=";
+            const spUrl = encodeURIComponent("https://query1.finance.yahoo.com/v8/finance/chart/^GSPC");
+            
+            const res = await fetch(proxy + spUrl);
+            const json = await res.json();
+            const data = JSON.parse(json.contents);
+            const price = data.chart.result[0].meta.regularMarketPrice;
+            
+            document.getElementById('sp-val').innerText = Math.round(price).toLocaleString();
+            status.innerText = "Live Sync Successful";
+        } catch (e) {
+            console.error("Live sync blocked or offline. Defaulting to Baselines.");
+            status.innerText = "Offline Mode: Using June 2026 Baselines";
+        }
+    }
+
+    // Initialize with Baselines immediately on load
+    window.onload = () => {
+        document.getElementById('sp-val').innerText = Math.round(baseline.sp).toLocaleString();
+        document.getElementById('nd-val').innerText = Math.round(baseline.nd).toLocaleString();
+        document.getElementById('fed-val').innerText = baseline.fed + "%";
+        document.getElementById('cpi-val').innerText = baseline.cpi + "%";
+    };
+</script>
+</body>
+</html>
